@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart Playlist Recommender with a Java backend and Apple Music inspired UI">
+    <title>Pulse Library</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background">
+        <div class="glow glow-a"></div>
+        <div class="glow glow-b"></div>
+        <div class="glow glow-c"></div>
+    </div>
+
+    <div class="app-shell">
+        <aside class="sidebar panel">
+            <div class="brand">
+                <div class="brand-mark">PL</div>
+                <div>
+                    <p class="eyebrow">Curated Sound</p>
+                    <h1>Pulse Library</h1>
+                    <p class="brand-copy">Minimal playlist recommendations with a calm Apple Music inspired feel.</p>
+                </div>
+            </div>
+
+            <nav class="nav" id="sidebarNav">
+                <button type="button" class="nav-item active" data-view="listen">Listen Now</button>
+                <button type="button" class="nav-item" data-view="browse">Browse</button>
+                <button type="button" class="nav-item" data-view="mixes">Your Mixes</button>
+                <button type="button" class="nav-item" data-view="saved">Saved</button>
+            </nav>
+
+            <section class="nav-detail" id="navDetail">
+                <p class="session-label" id="navDetailLabel">Listen Now</p>
+                <h3 id="navDetailTitle">Start with a clean home view.</h3>
+                <p id="navDetailCopy">Move through the sections to preview mixes, saved shelves, and library highlights.</p>
+                <div class="nav-detail-list" id="navDetailList"></div>
+            </section>
+
+            <div class="sidebar-note">
+                <p>Switch between sections to explore the interface and watch the details change in real time.</p>
+            </div>
+        </aside>
+
+        <main class="content">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">Smart Playlist Recommender</p>
+                    <h2>Clean playlist generation with a pure Java backend.</h2>
+                </div>
+                <div class="status-pill">
+                    <span id="healthDot" class="status-dot"></span>
+                    <span id="connectionText">Checking backend...</span>
+                </div>
+            </header>
+
+            <section class="hero-card panel" id="listenSection">
+                <div class="hero-copy">
+                    <p class="eyebrow">Fresh Picks</p>
+                    <h3>Generate personalized playlists by mood and genre in one smooth flow.</h3>
+                    <p class="hero-text">Login, select a vibe, and create a polished playlist in seconds with a front end that stays minimal and efficient.</p>
+
+                    <div class="hero-chips" id="heroChips"></div>
+
+                    <div class="hero-stats">
+                        <article class="stat-card">
+                            <span>Library</span>
+                            <strong id="statSongs">0 songs</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Saved</span>
+                            <strong id="statSaved">0 playlists</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Generated</span>
+                            <strong id="statGenerated">0 mixes</strong>
+                        </article>
+                        <article class="stat-card">
+                            <span>Recent</span>
+                            <strong id="statHistory">0 sessions</strong>
+                        </article>
+                    </div>
+                </div>
+
+                <div class="hero-art" id="heroArt">
+                    <div class="hero-disc"></div>
+                    <div class="hero-art-copy">
+                        <span>Now Playing</span>
+                        <strong id="heroPlaylistName">Midnight Focus Mix</strong>
+                        <p id="heroPlaylistHint">Choose a mood to generate your first playlist.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="workspace-grid">
+                <section class="panel control-panel">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">Login</p>
+                            <h3>Start a session</h3>
+                        </div>
+                    </div>
+
+                    <form id="loginForm" class="stack">
+                        <label>
+                            <span>Username</span>
+                            <input id="usernameInput" name="username" type="text" value="admin" autocomplete="username" required>
+                        </label>
+                        <label>
+                            <span>Password</span>
+                            <input id="passwordInput" name="password" type="password" value="1234" autocomplete="current-password" required>
+                        </label>
+                        <button type="submit" class="primary-button">Login to Continue</button>
+                    </form>
+
+                    <div class="session-card" id="sessionCard">
+                        <p class="session-label">Current session</p>
+                        <h4 id="sessionUser">Not logged in</h4>
+                        <p id="sessionPreference">Quick access: <strong>admin / 1234</strong></p>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">Generate</p>
+                            <h3>Build a playlist</h3>
+                        </div>
+                    </div>
+
+                    <form id="generatorForm" class="stack">
+                        <label>
+                            <span>Genre</span>
+                            <select id="genreSelect" name="genre"></select>
+                        </label>
+                        <label>
+                            <span>Mood</span>
+                            <select id="moodSelect" name="mood"></select>
+                        </label>
+                        <label>
+                            <span>Tracks</span>
+                            <input id="limitInput" name="limit" type="number" min="4" max="10" value="6">
+                        </label>
+                        <button type="submit" class="secondary-button">Generate Playlist</button>
+                    </form>
+                </section>
+
+                <section class="panel playlist-panel" id="playlistPanel">
+                    <div class="section-head section-head-spread">
+                        <div>
+                            <p class="eyebrow">Generated Mix</p>
+                            <h3 id="playlistTitle">No playlist yet</h3>
+                        </div>
+                        <button id="saveButton" type="button" class="ghost-button is-muted">Save Playlist</button>
+                    </div>
+
+                    <p id="playlistSummary" class="playlist-summary">Generate a playlist after login and the recommended tracks will appear here.</p>
+
+                    <div id="trackList" class="track-list empty-state">
+                        Generate your first mix to preview songs, durations, moods, and playlist details.
+                    </div>
+                </section>
+            </section>
+
+            <section class="bottom-grid">
+                <section class="panel" id="browseSection">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">Featured Tracks</p>
+                            <h3>Library Preview</h3>
+                        </div>
+                    </div>
+                    <div id="featuredGrid" class="featured-grid"></div>
+                </section>
+
+                <section class="panel" id="savedSection">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow">Saved Mixes</p>
+                            <h3>Your Playlist Shelf</h3>
+                        </div>
+                    </div>
+                    <div id="savedList" class="saved-list empty-state">
+                        Saved playlists will appear here once you store a generated mix.
+                    </div>
+                </section>
+            </section>
+
+            <section class="panel">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">Inside The Engine</p>
+                        <h3>What keeps the experience fast and clean</h3>
+                    </div>
+                </div>
+
+                <div class="concept-grid">
+                    <article class="concept-card">
+                        <span>Collections</span>
+                        <p>Tracks, genres, moods, and shelves stay organized for quick filtering and smooth retrieval.</p>
+                    </article>
+                    <article class="concept-card">
+                        <span>Validation</span>
+                        <p>Login, filtering, and save actions are checked carefully so the experience stays predictable.</p>
+                    </article>
+                    <article class="concept-card">
+                        <span>Private Models</span>
+                        <p>User, track, and playlist data are exposed in controlled ways to keep the code easy to trust.</p>
+                    </article>
+                    <article class="concept-card">
+                        <span>Concurrency</span>
+                        <p>Requests stay responsive while recommendations and saves happen without blocking the interface.</p>
+                    </article>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

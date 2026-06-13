@@ -40,7 +40,7 @@ public final class Main {
         Path frontendDir = resolveFrontendDir();
         System.out.println("Serving frontend from: " + frontendDir.toAbsolutePath());
 
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", PORT), 0);
+      HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", 8080), 0);
         server.setExecutor(Executors.newFixedThreadPool(12));
 
         server.createContext("/api/search", musicController::handleSearch);

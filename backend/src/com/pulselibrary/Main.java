@@ -13,7 +13,10 @@ import com.pulselibrary.service.PlaylistService;
 import com.pulselibrary.service.impl.MusicServiceImpl;
 import com.pulselibrary.service.impl.PlaylistServiceImpl;
 import com.pulselibrary.util.HttpResponses;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
@@ -25,65 +28,90 @@ import java.util.concurrent.Executors;
 public final class Main {
     private static final int PORT = 8080;
 
-    public static void main(String[] args) throws IOException {
-        TrackRepository trackRepository = new TrackRepository();
-        PlaylistRepository playlistRepository = new PlaylistRepository();
-        MusicService musicService = new MusicServiceImpl(trackRepository);
-        PlaylistService playlistService = new PlaylistServiceImpl(musicService, trackRepository, playlistRepository);
-        ITunesService iTunesService = new ITunesService();
+    // ── CORS helper ───────────────────────────────────────────
+    private static void addCorsHeaders(HttpExchange exchange) {
+        exchange.getResponseHeaders().set("Access-Control-Allow-Origin",  "*");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
+    }
 
-        TrackController trackController = new TrackController(musicService);
+    // Wraps any handler with CORS + OPTIONS preflight support
+    private static HttpHandler cors(HttpHandler handler) {
+        return exchange -> {
+            addCorsHeaders(exchange);
+            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
+                exchange.sendResponseHeaders(204, -1);
+                exchange.close();
+                return;
+            }
+            handler.handle(exchange);
+        };
+    }
+
+    // ── Main ──────────────────────────────────────────────────
+    public static void main(String[] args) throws IOException {
+        TrackRepository    trackRepository    = new TrackRepository();
+        PlaylistRepository playlistRepository = new PlaylistRepository();
+        MusicService       musicService       = new MusicServiceImpl(trackRepository);
+        PlaylistService    playlistService    = new PlaylistServiceImpl(musicService, trackRepository, playlistRepository);
+        ITunesService      iTunesService      = new ITunesService();
+
+        TrackController    trackController    = new TrackController(musicService);
         PlaylistController playlistController = new PlaylistController(playlistService);
-        StatsController statsController = new StatsController(playlistService);
-        MusicController musicController = new MusicController(iTunesService);
+        StatsController    statsController    = new StatsController(playlistService);
+        MusicController    musicController    = new MusicController(iTunesService);
 
         Path frontendDir = resolveFrontendDir();
         System.out.println("Serving frontend from: " + frontendDir.toAbsolutePath());
 
-      HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", 8080), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", PORT), 0);
         server.setExecutor(Executors.newFixedThreadPool(12));
 
-        server.createContext("/api/search", musicController::handleSearch);
-        server.createContext("/api/genre", musicController::handleGenre);
-        server.createContext("/api/playlist", musicController::handlePlaylist);
-        server.createContext("/api/recommend", musicController::handleRecommend);
-        server.createContext("/api/trending", musicController::handleTrending);
-        server.createContext("/api/genres", musicController::handleGenres);
+        // ── iTunes / Music endpoints ───────────────────────────
+        server.createContext("/api/search",    cors(musicController::handleSearch));
+        server.createContext("/api/genre",     cors(musicController::handleGenre));
+        server.createContext("/api/playlist",  cors(musicController::handlePlaylist));
+        server.createContext("/api/recommend", cors(musicController::handleRecommend));
+        server.createContext("/api/trending",  cors(musicController::handleTrending));
+        server.createContext("/api/genres",    cors(musicController::handleGenres));
 
-        server.createContext("/api/tracks", trackController::handle);
-        server.createContext("/api/playlist/generate", playlistController::handleGenerate);
-        server.createContext("/api/playlist/save", playlistController::handleSaveFromBody);
-        server.createContext("/api/playlist/saved", playlistController::handleSaved);
-        server.createContext(
-            "/api/playlist/delete/",
-            exchange -> {
-                String path = exchange.getRequestURI().getPath();
-                String prefix = "/api/playlist/delete/";
-                String id = path.startsWith(prefix) ? path.substring(prefix.length()) : "";
-                playlistController.handleDelete(exchange, id);
-            }
-        );
-        server.createContext("/api/stats/mood-distribution", statsController::handleMoodDistribution);
-        server.createContext("/api/stats/genre-count", statsController::handleGenreCount);
-        server.createContext("/api/stats/duration-distribution", statsController::handleDurationDistribution);
-        server.createContext("/api/stats/overview", statsController::handleOverview);
-        server.createContext("/api/health", exchange -> {
-            if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
-                HttpResponses.noContent(exchange, 204);
-                return;
-            }
+        // ── Track endpoints ───────────────────────────────────
+        server.createContext("/api/tracks", cors(trackController::handle));
+
+        // ── Playlist endpoints ────────────────────────────────
+        server.createContext("/api/playlist/generate", cors(playlistController::handleGenerate));
+        server.createContext("/api/playlist/save",     cors(playlistController::handleSaveFromBody));
+        server.createContext("/api/playlist/saved",    cors(playlistController::handleSaved));
+        server.createContext("/api/playlist/delete/",  cors(exchange -> {
+            String path   = exchange.getRequestURI().getPath();
+            String prefix = "/api/playlist/delete/";
+            String id     = path.startsWith(prefix) ? path.substring(prefix.length()) : "";
+            playlistController.handleDelete(exchange, id);
+        }));
+
+        // ── Stats endpoints ───────────────────────────────────
+        server.createContext("/api/stats/mood-distribution",     cors(statsController::handleMoodDistribution));
+        server.createContext("/api/stats/genre-count",           cors(statsController::handleGenreCount));
+        server.createContext("/api/stats/duration-distribution", cors(statsController::handleDurationDistribution));
+        server.createContext("/api/stats/overview",              cors(statsController::handleOverview));
+
+        // ── Health check ──────────────────────────────────────
+        server.createContext("/api/health", cors(exchange -> {
             Map<String, Object> payload = new LinkedHashMap<>();
-            payload.put("status", "ok");
-            payload.put("app", "Pulse Library");
+            payload.put("status",  "ok");
+            payload.put("app",     "Pulse Library");
             payload.put("runtime", System.getProperty("java.version"));
             HttpResponses.json(exchange, 200, payload);
-        });
+        }));
+
+        // ── Static frontend ───────────────────────────────────
         server.createContext("/", new StaticFileHandler(frontendDir));
 
         server.start();
-        System.out.println("Pulse Library running at http://127.0.0.1:" + PORT);
+        System.out.println("Pulse Library running at http://0.0.0.0:" + PORT);
     }
 
+    // ── Frontend folder resolver ──────────────────────────────
     private static Path resolveFrontendDir() throws IOException {
         Path cwd = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
         Path[] candidates = {
@@ -99,6 +127,8 @@ public final class Main {
             }
         }
 
-        throw new IOException("Could not find frontend folder. Working directory was: " + cwd);
+        throw new IOException(
+            "Could not find frontend folder. Working directory was: " + cwd
+        );
     }
 }
